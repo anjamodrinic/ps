@@ -1,0 +1,108 @@
+public class PersonTableModel extends AbstractTableModel {
+
+    private List<Person> persons;
+    private String[] columns = new String[]{"Firstname", "Lastname", "Gender", "Date", "City", "Married"};
+    private DateFormat df = new SimpleDateFormat("dd.MM.yyyy");
+    private Class[] classes = new Class[]{Object.class, Object.class, Object.class, Object.class, Object.class, Boolean.class};
+    private boolean editable;
+    
+    
+    public PersonTableModel(List<Person> persons, boolean editable) {
+        this.persons = persons;
+        this.editable=editable;
+    }
+
+    @Override
+    public int getRowCount() {
+        return persons.size();
+    }
+
+    @Override
+    public int getColumnCount() {
+        return columns.length;
+    }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        Person person = persons.get(rowIndex);
+        switch (columnIndex) {
+            case 0:
+                return person.getFirstname();
+            case 1:
+                return person.getLastname();
+            case 2:
+                return person.getGender();
+            case 3:
+                if(person.getBirthday()!=null){
+                    return df.format(person.getBirthday());
+                }else{
+                    return null;
+                }
+            case 4:
+                return person.getCity();
+            case 5:
+                return person.isMarried();
+            default:
+                return "n/a";
+        }
+    }
+
+    @Override
+    public String getColumnName(int column) {
+        return columns[column];
+    }
+
+    @Override
+    public Class<?> getColumnClass(int columnIndex) {
+        return classes[columnIndex];
+    }
+
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        return editable;
+    }
+
+    @Override
+    public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+        Person person=persons.get(rowIndex);
+        switch (columnIndex) {
+            case 0:
+                person.setFirstname((String)aValue);
+                break;
+            case 1:
+                person.setLastname((String)aValue);
+                break;
+            case 2:
+                person.setGender((Gender)aValue);
+                break;
+            case 3:
+                try {
+                    person.setBirthday(df.parse((String)aValue));
+                } catch (ParseException ex) {
+                    Logger.getLogger(PersonTableModel.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                break;
+            case 4:
+                person.setCity((City)aValue);
+                break;
+            case 5:
+                person.setMarried((Boolean)aValue);
+                break;
+        }
+    }
+    
+    public void addPerson(Person person){
+        persons.add(person);
+        fireTableDataChanged();
+    }
+    
+    public void removePerson(int rowIndex){
+        persons.remove(rowIndex);
+        fireTableRowsDeleted(rowIndex, rowIndex);
+    }
+    
+    public List<Person> getPersons(){
+        return persons;
+    }
+
+}
