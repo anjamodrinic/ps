@@ -1,0 +1,213 @@
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import model.City;
+import model.Gender;
+import model.Person;
+
+/**
+ *
+ * @author korisnik
+ */
+public class DatabaseRepository {
+    private Connection connection;
+    public void connect() throws SQLException{
+        try {
+            String url = "jdbc:mysql://localhost/prosoft_2022_d3";
+            String user = "root";
+            String password = "";
+            connection = DriverManager.getConnection(url, user, password);
+            connection.setAutoCommit(false);
+            System.out.println("Uspostavila se konekcija");
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            System.out.println("Neuspesno uspostavljanje konekcije");
+            throw ex;
+        }
+    }
+    
+    public void disconnect() throws SQLException{
+        if(connection!=null){
+            try {
+                connection.close();
+                System.out.println("Uspesno raskinuta konekcija");
+            } catch (SQLException ex) {
+                System.out.println("Neuspesno raskinuta konekcija");
+                ex.printStackTrace();
+                throw ex;
+            }
+        }
+    }
+    
+    public void commit() throws SQLException{
+        if(connection!=null){
+            try {
+                connection.commit();
+                System.out.println("Uspesno potvrdjena transakcija");
+            } catch (SQLException ex) {
+                System.out.println("Neuspesno potvrdjena transakcija");
+                ex.printStackTrace();
+                throw ex;
+            }
+        }
+    }
+    
+    public void rollback() throws SQLException{
+        if(connection!=null){
+            try {
+                connection.rollback();
+                System.out.println("Uspesno ponistena transakcija");
+            } catch (SQLException ex) {
+                System.out.println("Neuspesno ponistena transakcija");
+                ex.printStackTrace();
+                throw ex;
+            }
+        }
+    }
+    
+    public void saveCity(City city) {
+        try {
+
+
+            String query = "INSERT INTO city (zip_code, name) VALUES (" + city.getZipCode() + ",'" + city.getName() + "')";
+            System.out.println(query);
+            Statement statement = connection.createStatement();
+            //izvsi upit
+            int result = statement.executeUpdate(query);
+            System.out.println("Result = " + result);
+            statement.close();
+
+        } catch (SQLException ex) {
+            System.out.println("Desila se greska: " + ex.getMessage());
+        }
+    }
+
+    public void saveParametrizedCity(City city) {
+        try {
+
+
+            String query = "INSERT INTO city (zip_code, name) VALUES (?,?)";
+            System.out.println(query);
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setLong(1, city.getZipCode());
+            preparedStatement.setString(2, city.getName());
+            //izvsi upit
+            int result = preparedStatement.executeUpdate();
+            System.out.println("Result = " + result);
+
+            preparedStatement.close();
+
+
+        } catch (SQLException ex) {
+            System.out.println("Desila se greska: " + ex.getMessage());
+        }
+    }
+
+    public List<City> getCities() {
+        try {
+            List<City> cities = new ArrayList<>();
+            //uzeti sve gradove iz tabele city i prebaciti u listu cities
+
+
+            String query = "SELECT zip_code,name from CITY order by name";
+
+            Statement statement = connection.createStatement();
+            ResultSet resultSet = statement.executeQuery(query);
+            while (resultSet.next()) {
+                Long zipCode = resultSet.getLong("zip_code");
+                String name = resultSet.getString(2);
+                cities.add(new City(zipCode, name));
+            }
+            resultSet.close();
+            statement.close();
+
+            return cities;
+        } catch (SQLException ex) {
+            Logger.getLogger(DatabaseRepository.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    public void removeCity(Long zipCode) {
+        try {
+            
+            String query = "delete from city where zip_code = ?";
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setLong(1, zipCode);
+            
+            preparedStatement.executeUpdate();
+            System.out.println("Uspesno izbrisan slog!");
+            preparedStatement.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(DatabaseRepository.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.out.println("Uspostavila se konekcija");
+    }
+    
+    public void addPersons(List<Person> persons) throws SQLException{
+        try {
+            String upit="INSERT INTO Person (Firstname, Lastname, Gender, Birthdate, married, zip_code) VALUES (?,?,?,?,?,?)";
+            PreparedStatement statement=connection.prepareStatement(upit, Statement.RETURN_GENERATED_KEYS);
+            for (Person person : persons) {
+                statement.setString(1, person.getFirstname());
+                statement.setString(2, person.getLastname());
+                statement.setString(3, person.getGender().toString());
+                statement.setDate(4, new java.sql.Date(person.getBirthday().getTime()));
+                statement.setBoolean(5, person.isMarried());
+                statement.setLong(6, person.getCity().getZipCode());
+                statement.executeUpdate();
+                ResultSet rsID=statement.getGeneratedKeys();
+                if(rsID.next()){
+                    Long id=rsID.getLong(1);
+                    person.setId(id);
+                    System.out.println(person);
+                }
+            }
+            statement.close();
+            
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            throw ex;
+        }
+        
+    }
+    
+    public List<Person> getAllPerson() throws SQLException{
+        List<Person> persons=new ArrayList<>();
+        String query="SELECT personid AS id, firstname, lastname, gender, birthdate, married, p.zip_code, c.name FROM Person p INNER JOIN City c ON p.zip_code=c.zip_code";
+        Statement statement;
+        try {
+            statement = connection.createStatement();
+            ResultSet rs=statement.executeQuery(query);
+            while (rs.next()){
+                Person person=new Person();
+                person.setId(rs.getLong("id"));
+                person.setFirstname(rs.getString("firstname"));
+                person.setLastname(rs.getString("lastname"));
+                person.setGender(Gender.valueOf(rs.getString("gender")));
+                person.setBirthday(new Date(rs.getDate("birthdate").getTime()));
+                person.setMarried(rs.getBoolean("married"));
+                person.setCity(new City(rs.getLong("p.zip_code"), rs.getString("c.name")));
+                persons.add(person);
+            }
+            rs.close();
+            statement.close();
+        } catch (SQLException ex) {
+            System.out.println("Greska prilikom ucitavanja liste osoba iz baze!");
+            ex.printStackTrace();
+            throw ex;
+        }
+
+        return persons;
+    }
+}
